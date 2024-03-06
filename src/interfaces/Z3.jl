@@ -10,48 +10,57 @@ z3forall(x::String, y::String) = "(forall " * x * " " * y * " )"
 z3exists(x::String, y::String) = "(exists " * x * " " * y * " )"
 
 # Logic dictionaries
-dictprop = Dict{Connective,Function}([
+const __Z3_FUNCS = Dict{Connective,Function}([
     (¬, z3not),
     (∧, z3and),
     (∨, z3or),
     (→, z3implies),
+    (◊, z3forall),
+    (□, z3exists),
 ])
 
-dictmodal = merge(
-    dictprop,
-    Dict{Connective,Function}([
-        (◊, z3forall),
-        (□, z3exists),
-    ]),
-);
-
-# Global set of variables
-vars = String[]
-for i in collect('z':-1:'a')
-    for j in collect(100:-1:1)
-        push!(vars,"$i$j")
-    end
+# Integer index of the next free variable
+@kwdef mutable struct Z3FreeVariables <: AbstractVector{String}
+    variable_index::Int64 = 0
 end
+
+import Base: pop!
+function Base.pop!(a::Z3FreeVariables)
+    ret = a.variable_index
+    a.variable_index += 1
+    return ret
+end
+
+# Z3FreeVariables() = String[]
+# for i in collect('z':-1:'a')
+#     for j in collect(100:-1:1)
+#         push!(Z3FreeVariables(),"$i$j")
+#     end
+# end
 
 ################################################################################################
 #################################### Initial Point #############################################
 ################################################################################################
-function z3translate(f::Formula; logic::Symbol=:prop, kwargs...)
+function z3translate(f::Formula; logic::Symbol=:propositional, kwargs...)
     result = ""
-    dictops = nothing
+    dictops = __Z3_FUNCS
 
-    if !(logic == :prop || logic == :modal)
-        error("Possible logic: propositional (:prop) and modal (:modal)")
+    # dictops = merge(
+    #     dictops,
+    #     Dict{Connective,Function}([
+    #         # Custom functions provided by the user...?
+    #     ]),
+    # );
+
+    if !(logic in [:propositional, :modal])
+        error("Unexpected value for `logic` parameter. Possible values are :propositional and :modal.")
     end
 
-    if logic == :prop
-        dictops = dictprop
-    elseif logic == :modal
-        dictops = dictmodal
+    if logic == :modal
         result = result * "(declare-sort A 0)\n(declare-fun R (A A) Bool)\n"
     end
 
-    context, formula = z3subtranslate(f; dictops = dictops, freevariables=vars, kwargs...)
+    context, formula = z3subtranslate(f; dictops = dictops, freevariables=Z3FreeVariables(), kwargs...)
 
     return result * context * "(assert $(formula) )"
 end
@@ -76,7 +85,7 @@ z3subtranslate(f::AnchoredFormula; kwargs...) = z3subtranslate(synstruct(f); kwa
 function z3subtranslate(
     f::LeftmostLinearForm{C,SS};
     dictops::Dict{Connective,Function}=dictops,
-    freevariables::Vector{String}=vars,
+    freevariables::AbstractVector{<:AbstractString}=Z3FreeVariables(),
     kwargs...,
 ) where {C<:Connective, SS<:AbstractSyntaxStructure}
     fchildren = children(f)
@@ -126,7 +135,7 @@ z3subtranslate(f::SyntaxTree; kwargs...) =
 function z3subtranslate(
     f::SyntaxBranch;
     dictops::Dict{Connective,Function}=dictops,
-    freevariables::Vector{String}=vars,
+    freevariables::AbstractVector{<:AbstractString}=Z3FreeVariables(),
     kwargs...,
 )
     ftoken = token(f)
