@@ -92,6 +92,91 @@ end
 syntaxstring(value; kwargs...) = string(value)
 
 ############################################################################################
+#### BooleanTruth ##########################################################################
+############################################################################################
+
+"""
+    struct BooleanTruth <: Truth
+        flag::Bool
+    end
+
+Structure for representing the Boolean truth values ⊤ and ⊥.
+It wraps a flag which takes value `true` for ⊤ ([`TOP`](@ref)),
+and `false` for ⊥ ([`BOT`](@ref))
+
+See also [`BooleanAlgebra`](@ref).
+"""
+struct BooleanTruth <: Truth
+    flag::Bool
+end
+
+istop(t::BooleanTruth) = t.flag
+isbot(t::BooleanTruth) = !istop(t)
+
+syntaxstring(t::BooleanTruth; kwargs...) = istop(t) ? "⊤" : "⊥"
+
+function Base.show(io::IO, φ::BooleanTruth)
+    print(io, "$(syntaxstring(φ))")
+end
+
+doc_TOP = """
+    const TOP = BooleanTruth(true)
+    const ⊤ = TOP
+
+Canonical truth operator representing the value `true`.
+It can be typed by `\\top<tab>`.
+
+See also [`BOT`](@ref), [`Truth`](@ref).
+"""
+"""$(doc_TOP)"""
+const TOP = BooleanTruth(true)
+"""$(doc_TOP)"""
+const ⊤ = TOP
+
+doc_BOTTOM = """
+    const BOT = BooleanTruth(false)
+    const ⊥ = BOT
+
+Canonical truth operator representing the value `false`.
+It can be typed by `\\bot<tab>`.
+
+See also [`TOP`](@ref), [`Truth`](@ref).
+"""
+"""$(doc_BOTTOM)"""
+const BOT = BooleanTruth(false)
+"""$(doc_BOTTOM)"""
+const ⊥ = BOT
+
+# NOTE: it could be useful to provide a macro to easily create
+# a new set of Truth types. In particular, a new subtree of types must be planted
+# as children of Truth, and new promotion rules are to be defined like below.
+Base.promote_rule(::Type{<:BooleanTruth}, ::Type{<:BooleanTruth}) = BooleanTruth
+
+function Base.convert(::Type{BooleanTruth}, t::Bool)::BooleanTruth
+    return (t ? TOP : BOT)
+end
+function Base.convert(::Type{BooleanTruth}, t::Integer)::BooleanTruth
+    if isone(t)
+        return TOP
+    elseif iszero(t)
+        return BOT
+    else
+        return error("Cannot interpret Integer value $t as BooleanTruth.")
+    end
+end
+
+Base.convert(::Type{Truth}, t::Bool) = Base.convert(BooleanTruth, t)
+Base.convert(::Type{Truth}, t::Integer) = Base.convert(BooleanTruth, t)
+
+# NOTE: are these useful?
+hasdual(::BooleanTruth) = true
+dual(c::BooleanTruth) = BooleanTruth(!istop(c))
+
+precedes(t1::BooleanTruth, t2::BooleanTruth) = istop(t1) < istop(t2)
+truthmeet(t1::BooleanTruth, t2::BooleanTruth) = precedes(t1, t2) ? t1 : t2
+truthjoin(t1::BooleanTruth, t2::BooleanTruth) = precedes(t1, t2) ? t2 : t1
+
+############################################################################################
 #### SyntaxBranch ##########################################################################
 ############################################################################################
 
@@ -146,10 +231,13 @@ struct SyntaxBranch <: AbstractSyntaxBranch
     token::Connective
 
     # The child nodes of the current node
-    children::NTuple{N, SyntaxTree} where {N}
+    children::Vector{Union{Atom, BooleanTruth, SyntaxBranch}}
 
-    function _aritycheck(N, token, children)
-        if arity(token) != N
+    function _aritycheck(
+        token::Connective,
+        children::Vector{Union{Atom, BooleanTruth, SyntaxBranch}},
+    )
+        if arity(token) != length(children)
             throw(
                 "Cannot instantiate SyntaxBranch with token " *
                 "$(token) of arity $(arity(token)) and $(N) children."
@@ -160,15 +248,15 @@ struct SyntaxBranch <: AbstractSyntaxBranch
 
     function SyntaxBranch(
             token::Connective,
-            children::NTuple{N, SyntaxTree} = (),
-    ) where {N}
-        _aritycheck(N, token, children)
+            children::Vector{Union{Atom, BooleanTruth, SyntaxBranch}},
+    )
+        _aritycheck(token, children)
         return new(token, children)
     end
 
     # Helpers
     function SyntaxBranch(token::Connective, children...)
-        return SyntaxBranch(token, children)
+        return SyntaxBranch(token, [c for c in children])
     end
 end
 

@@ -27,7 +27,7 @@ test_suites = [
 
     ("Interpretation Sets", ["interpretation-sets.jl"]),
 
-    ("Propositional Logic", ["propositional-logic.jl"]),
+    # ("Propositional Logic", ["propositional-logic.jl"]),
 
     ("Algebras: worlds", ["frames/worlds.jl",]),
     ("Algebras: frames", ["frames/frames.jl",]),

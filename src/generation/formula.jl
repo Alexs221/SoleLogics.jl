@@ -267,7 +267,7 @@ end
         maxheight::Integer,
         maxmodaldepth::Integer,
         must_honor_height = (mode != :maxheight);
-    )::SyntaxTree
+    )
 
         if (maxheight == 0) || (mode != :full && !must_honor_height && rand(rng, Float16) < earlystoppingtreshold)
             if isnothing(basecase)
@@ -287,7 +287,7 @@ end
             if must_honor_height && (mode != :maxheight)
                 child_to_honor_height = rand(rng, 1:arity(op))
             end
-            ch = Tuple([begin
+            ch = Vector{Union{Atom, BooleanTruth, SyntaxBranch}}([begin
                     if must_honor_height
                         if (mode != :maxheight)
                             # A child must honor the height constraint
@@ -300,7 +300,7 @@ end
                     end
                     _randformula(rng, maxheight-1, maxmodaldepth-(ismodal(op) ? 1 : 0), (must_honor_height && child_must_honor_height))
                 end for i_ch in 1:arity(op)])
-            return SyntaxTree(op, ch)
+            return SyntaxBranch(op, ch)
         end
     end
 

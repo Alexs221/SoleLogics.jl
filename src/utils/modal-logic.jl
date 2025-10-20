@@ -335,7 +335,7 @@ julia> [w => check(fmodal, kstruct, w) for w in worlds]
 See also [`SyntaxTree`](@ref), [`AbstractWorld`](@ref), [`KripkeStructure`](@ref).
 """
 function check(
-    φ::SyntaxTree,
+    φ::Union{Atom, BooleanTruth, SyntaxBranch},
     i::AbstractKripkeStructure,
     w::Union{Nothing,AnyWorld,<:AbstractWorld} = nothing;
     use_memo::Union{Nothing,AbstractDict{<:Formula,<:Vector{<:AbstractWorld}}} = nothing,
@@ -352,24 +352,24 @@ function check(
     @assert isgrounded(φ) || !(isnothing(w)) "Please, specify a world in order " *
         "to check non-grounded formula: $(syntaxstring(φ))."
 
-    setformula(memo_structure::AbstractDict{<:Formula}, φ::Formula, val) = memo_structure[tree(φ)] = val
-    readformula(memo_structure::AbstractDict{<:Formula}, φ::Formula) = memo_structure[tree(φ)]
-    hasformula(memo_structure::AbstractDict{<:Formula}, φ::Formula) = haskey(memo_structure, tree(φ))
+    setformula(memo_structure::AbstractDict{Union{Atom, BooleanTruth, SyntaxBranch}}, φ::Union{Atom, BooleanTruth, SyntaxBranch}, val) = memo_structure[tree(φ)] = val
+    readformula(memo_structure::AbstractDict{Union{Atom, BooleanTruth, SyntaxBranch}}, φ::Union{Atom, BooleanTruth, SyntaxBranch}) = memo_structure[tree(φ)]
+    hasformula(memo_structure::AbstractDict{Union{Atom, BooleanTruth, SyntaxBranch}}, φ::Union{Atom, BooleanTruth, SyntaxBranch}) = haskey(memo_structure, tree(φ))
 
-    if perform_normalization
-        φ = normalize(φ; profile = :modelchecking, allow_atom_flipping = false)
-    end
+    # if perform_normalization
+    #     φ = normalize(φ; profile = :modelchecking, allow_atom_flipping = false)
+    # end
 
     memo_structure = begin
         if isnothing(use_memo)
-            ThreadSafeDict{SyntaxTree,Worlds{W}}()
+            ThreadSafeDict{Union{Atom, BooleanTruth, SyntaxBranch},Worlds{W}}()
         else
             use_memo
         end
     end
 
     if !isnothing(memo_max_height)
-        forget_list = Vector{SyntaxTree}()
+        forget_list = Vector{Union{Atom, BooleanTruth, SyntaxBranch}}()
     end
 
     fr = frame(i)
@@ -697,25 +697,25 @@ function collateworlds(fr::AbstractFrame{W}, t::BooleanTruth, ::NTuple{0,<:Abstr
     istop(t) ? allworlds(fr) : W[]
 end
 
-collateworlds(fr::AbstractFrame{W}, ::typeof(¬), (ws,)::NTuple{1,<:AbstractWorlds}) where {W<:AbstractWorld} = setdiff(allworlds(fr), ws)
-collateworlds(::AbstractFrame{W}, ::typeof(∧), (ws1, ws2)::NTuple{2,<:AbstractWorlds}) where {W<:AbstractWorld} = intersect(ws1, ws2)
-collateworlds(::AbstractFrame{W}, ::typeof(∨), (ws1, ws2)::NTuple{2,<:AbstractWorlds}) where {W<:AbstractWorld} = union(ws1, ws2)
-collateworlds(fr::AbstractFrame{W}, ::typeof(→), (ws1, ws2)::NTuple{2,<:AbstractWorlds}) where {W<:AbstractWorld} = union(setdiff(allworlds(fr), ws1), ws2)
+collateworlds(fr::AbstractFrame{W}, ::typeof(¬), (ws,)::Vector{<:AbstractWorlds}) where {W<:AbstractWorld} = setdiff(allworlds(fr), ws)
+collateworlds(::AbstractFrame{W}, ::typeof(∧), (ws1, ws2)::Vector{<:AbstractWorlds}) where {W<:AbstractWorld} = intersect(ws1, ws2)
+collateworlds(::AbstractFrame{W}, ::typeof(∨), (ws1, ws2)::Vector{<:AbstractWorlds}) where {W<:AbstractWorld} = union(ws1, ws2)
+collateworlds(fr::AbstractFrame{W}, ::typeof(→), (ws1, ws2)::Vector{<:AbstractWorlds}) where {W<:AbstractWorld} = union(setdiff(allworlds(fr), ws1), ws2)
 
 function collateworlds(
     fr::AbstractFrame{W},
     op::typeof(◊),
-    (ws,)::NTuple{1,<:AbstractWorlds},
+    ws::Vector{<:AbstractWorlds},
 ) where {W<:AbstractWorld}
-    filter(w1->intersects(ws, accessibles(fr, w1)), collect(allworlds(fr)))
+    filter(w1->intersects(ws[1], accessibles(fr, w1)), collect(allworlds(fr)))
 end
 
 function collateworlds(
     fr::AbstractFrame{W},
     op::typeof(□),
-    (ws,)::NTuple{1,<:AbstractWorlds},
+    ws::Vector{<:AbstractWorlds},
 ) where {W<:AbstractWorld}
-    filter(w1->issubset(accessibles(fr, w1), ws), collect(allworlds(fr)))
+    filter(w1->issubset(accessibles(fr, w1), ws[1]), collect(allworlds(fr)))
 end
 
 # TODO: use AbstractMultiModalFrame

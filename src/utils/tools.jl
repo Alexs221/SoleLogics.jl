@@ -100,15 +100,15 @@ See also
 [`SyntaxTree`](@ref)), [`Formula`](@ref).
 """
 subformulas(f::Formula, args...; kwargs...) = subformulas(tree(f), args...; kwargs...)
-function subformulas(t::SyntaxTree; sorted=true)
+function subformulas(t::Union{Atom, BooleanTruth, SyntaxBranch}; sorted=true)
     # function _subformulas(_t::SyntaxTree)
     #     SyntaxTree[
     #         (map(SyntaxTree, Iterators.flatten(subformulas.(children(_t)))))...,
     #         _t
     #     ]
     # end
-    function _subformulas(_t::SyntaxTree)
-        SyntaxTree[
+    function _subformulas(_t::Union{Atom, BooleanTruth, SyntaxBranch})
+        Union{Atom, BooleanTruth, SyntaxBranch}[
             (Iterators.flatten(subformulas.(children(_t))))...,
             _t
         ]
